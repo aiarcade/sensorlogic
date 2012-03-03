@@ -2,13 +2,14 @@ import sys
 from PyQt4 import Qt
 import PyQt4.Qwt5 as Qwt
 import serial
-
-
+from PyQt4.Qwt5.anynumpy import *
+import random
 
 class mainPlot(Qt.QWidget):
 	def __init__(self, *args):
 		
 		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
+		acsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		Qt.QWidget.__init__(self, *args)
 		self.layout=Qt.QGridLayout(self)
 		#Pressure graph
@@ -34,10 +35,44 @@ class mainPlot(Qt.QWidget):
 		self.curveP2.setPen(Qt.QPen(prsPenColors[1]))
 		self.curveP3.setPen(Qt.QPen(prsPenColors[2]))
 		self.curveP4.setPen(Qt.QPen(prsPenColors[3]))
-		self.curveP5.setPen(Qt.QPen(prsPenColors[5]))
+		self.curveP5.setPen(Qt.QPen(prsPenColors[4]))
+		
+		self.x = arange(0.0, 100.1, 0.5)
+		self.p1 = zeros(len(self.x), Float)
+		self.curveP1.setData(self.x, self.p1)
+		
+		#Acceleration
+		self.acsPlot=Qwt.QwtPlot(self)
+		self.acsPlot.setTitle('Acceleration Sensor')
+		self.acsPlot.setCanvasBackground(Qt.Qt.white)
+		self.acsPlot.plotLayout().setCanvasMargin(0)
+		self.acsPlot.plotLayout().setAlignCanvasToScales(True)
+		self.layout.addWidget( self.acsPlot, 0, 1)
+		
+		self.curveA1 = Qwt.QwtPlotCurve("P1")
+		self.curveA1.attach(self.acsPlot)
+		self.curveA2 = Qwt.QwtPlotCurve("P2")
+		self.curveA2.attach(self.acsPlot)
+		self.curveA3 = Qwt.QwtPlotCurve("P3")
+		self.curveA3.attach(self.acsPlot)
+		self.curveA4 = Qwt.QwtPlotCurve("P4")
+		self.curveA4.attach(self.acsPlot)
+		self.curveA5 = Qwt.QwtPlotCurve("P5")
+		self.curveA5.attach(self.acsPlot)
+		
+		self.curveA1.setPen(Qt.QPen(acsPenColors[0]))
+		self.curveA2.setPen(Qt.QPen(acsPenColors[1]))
+		self.curveA3.setPen(Qt.QPen(acsPenColors[2]))
+		self.curveA4.setPen(Qt.QPen(acsPenColors[3]))
+		self.curveA5.setPen(Qt.QPen(acsPenColors[4]))
+		
+		
+		self.a1 = zeros(len(self.x), Float)
+		self.curveA1.setData(self.x, self.a1)
+		
 		
 		self.prsPlot.replot()
-		        
+		self.acsPlot.replot()      
 
 
 class sensor():
@@ -55,7 +90,7 @@ class sensor():
 app = Qt.QApplication(sys.argv)
 print "hello"
 demo = mainPlot()
-demo.resize(400, 600)
+demo.resize(1000, 700)
 demo.show()
 sys.exit(app.exec_())
 
