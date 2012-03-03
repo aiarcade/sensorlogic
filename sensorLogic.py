@@ -74,12 +74,23 @@ class mainPlot(Qt.QWidget):
 		self.curveA1.setData(self.x, self.a1)
 		
 		self.prsFrame=QtGui.QFrame(self)
+		self.prsFrame.setFrameShape(QtGui.QFrame.StyledPanel)
+
 		self.acsFrame=QtGui.QFrame(self)
+		self.acsFrame.setFrameShape(QtGui.QFrame.StyledPanel)
 		
 		self.prsSplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
 		self.prsSplitter.addWidget(self.prsPlot)
 		self.prsSplitter.addWidget(self.prsFrame)
-		self.hbox.addWidget(self.prsSplitter)
+		self.acsSplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+		self.acsSplitter.addWidget(self.acsPlot)
+		self.acsSplitter.addWidget(self.acsFrame)
+		
+		self.Splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+		self.Splitter.addWidget(self.acsSplitter)
+		self.Splitter.addWidget(self.prsSplitter)
+		self.hbox.addWidget(self.Splitter)
+		
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
 		self.acsPlot.replot()      
