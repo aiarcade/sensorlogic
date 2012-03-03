@@ -52,15 +52,15 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.plotLayout().setAlignCanvasToScales(True)
 		#self.layout.addWidget( self.acsPlot, 1, 0)
 		
-		self.curveA1 = Qwt.QwtPlotCurve("P1")
+		self.curveA1 = Qwt.QwtPlotCurve("A1")
 		self.curveA1.attach(self.acsPlot)
-		self.curveA2 = Qwt.QwtPlotCurve("P2")
+		self.curveA2 = Qwt.QwtPlotCurve("A2")
 		self.curveA2.attach(self.acsPlot)
-		self.curveA3 = Qwt.QwtPlotCurve("P3")
+		self.curveA3 = Qwt.QwtPlotCurve("A3")
 		self.curveA3.attach(self.acsPlot)
-		self.curveA4 = Qwt.QwtPlotCurve("P4")
+		self.curveA4 = Qwt.QwtPlotCurve("A4")
 		self.curveA4.attach(self.acsPlot)
-		self.curveA5 = Qwt.QwtPlotCurve("P5")
+		self.curveA5 = Qwt.QwtPlotCurve("A5")
 		self.curveA5.attach(self.acsPlot)
 		
 		self.curveA1.setPen(Qt.QPen(acsPenColors[0]))
@@ -96,7 +96,7 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.replot()      
 
 
-class sensor():
+class basicSensor():
 	def __init__(self, device):
 		self.port = serial.Serial(device,9600, timeout=1)
 	def readValue():
@@ -105,7 +105,13 @@ class sensor():
 	def close():
 		self.port.close()
 		
-
+class Sensor(threading.Thread):
+	def __init__(self,sensor):
+		threading.Thread.__init__(self, None)
+		self.start()
+	def run(self):
+		
+		print "hello i am a thread"
 
         
 app = Qt.QApplication(sys.argv)
