@@ -78,7 +78,7 @@ class mainPlot(Qt.QWidget):
 		
 		self.prsSplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
 		self.prsSplitter.addWidget(self.prsPlot)
-		self.prsSplitter.addWidget(self.acsPlot)
+		self.prsSplitter.addWidget(self.prsFrame)
 		self.hbox.addWidget(self.prsSplitter)
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
