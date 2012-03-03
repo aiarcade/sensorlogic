@@ -4,9 +4,11 @@ import PyQt4.Qwt5 as Qwt
 import serial
 
 
+
 class mainPlot(Qt.QWidget):
 	def __init__(self, *args):
-		print "hello"
+		
+		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		Qt.QWidget.__init__(self, *args)
 		self.layout=Qt.QGridLayout(self)
 		#Pressure graph
@@ -16,6 +18,7 @@ class mainPlot(Qt.QWidget):
 		self.prsPlot.plotLayout().setCanvasMargin(0)
 		self.prsPlot.plotLayout().setAlignCanvasToScales(True)
 		self.layout.addWidget( self.prsPlot, 0, 0)
+		
 		self.curveP1 = Qwt.QwtPlotCurve("P1")
 		self.curveP1.attach(self.prsPlot)
 		self.curveP2 = Qwt.QwtPlotCurve("P2")
@@ -26,8 +29,15 @@ class mainPlot(Qt.QWidget):
 		self.curveP4.attach(self.prsPlot)
 		self.curveP5 = Qwt.QwtPlotCurve("P5")
 		self.curveP5.attach(self.prsPlot)
+		
+		self.curveP1.setPen(Qt.QPen(prsPenColors[0]))
+		self.curveP2.setPen(Qt.QPen(prsPenColors[1]))
+		self.curveP3.setPen(Qt.QPen(prsPenColors[2]))
+		self.curveP4.setPen(Qt.QPen(prsPenColors[3]))
+		self.curveP5.setPen(Qt.QPen(prsPenColors[5]))
+		
 		self.prsPlot.replot()
-        
+		        
 
 
 class sensor():
