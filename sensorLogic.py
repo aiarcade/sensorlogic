@@ -1,5 +1,7 @@
 import sys
 from PyQt4 import Qt
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 import PyQt4.Qwt5 as Qwt
 import serial
 from PyQt4.Qwt5.anynumpy import *
@@ -11,14 +13,15 @@ class mainPlot(Qt.QWidget):
 		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		acsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		Qt.QWidget.__init__(self, *args)
-		self.layout=Qt.QGridLayout(self)
+		#self.layout=Qt.QGridLayout(self)
+		self.hbox = QtGui.QHBoxLayout(self)
 		#Pressure graph
 		self.prsPlot=Qwt.QwtPlot(self)
 		self.prsPlot.setTitle('Pressure Sensor')
 		self.prsPlot.setCanvasBackground(Qt.Qt.white)
 		self.prsPlot.plotLayout().setCanvasMargin(0)
 		self.prsPlot.plotLayout().setAlignCanvasToScales(True)
-		self.layout.addWidget( self.prsPlot, 0, 0)
+		#self.layout.addWidget( self.prsPlot, 0, 0)
 		
 		self.curveP1 = Qwt.QwtPlotCurve("P1")
 		self.curveP1.attach(self.prsPlot)
@@ -47,7 +50,7 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.setCanvasBackground(Qt.Qt.white)
 		self.acsPlot.plotLayout().setCanvasMargin(0)
 		self.acsPlot.plotLayout().setAlignCanvasToScales(True)
-		self.layout.addWidget( self.acsPlot, 0, 1)
+		#self.layout.addWidget( self.acsPlot, 1, 0)
 		
 		self.curveA1 = Qwt.QwtPlotCurve("P1")
 		self.curveA1.attach(self.acsPlot)
@@ -70,7 +73,14 @@ class mainPlot(Qt.QWidget):
 		self.a1 = zeros(len(self.x), Float)
 		self.curveA1.setData(self.x, self.a1)
 		
+		self.prsFrame=QtGui.QFrame(self)
+		self.acsFrame=QtGui.QFrame(self)
 		
+		self.prsSplitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+		self.prsSplitter.addWidget(self.prsPlot)
+		self.prsSplitter.addWidget(self.acsPlot)
+		self.hbox.addWidget(self.prsSplitter)
+		self.setLayout(self.hbox)
 		self.prsPlot.replot()
 		self.acsPlot.replot()      
 
@@ -88,6 +98,7 @@ class sensor():
 
         
 app = Qt.QApplication(sys.argv)
+QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
 print "hello"
 demo = mainPlot()
 demo.resize(1000, 700)
