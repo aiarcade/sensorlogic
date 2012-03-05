@@ -14,17 +14,32 @@ import PyQt4.Qwt5 as Qwt
 from PyQt4.Qwt5.anynumpy import *
 import serial
 
+class kalmanFilter():
+	 def __init__(self,q,r,p,initial_value):
+	 	self.q=q
+	 	self.p=p
+	 	self.r=r
+	 	self.inital_value=initial_value
+	def addSample(measurement):
+    	self.p=self.p+self.q
+    	self.k=self.p/(self.p+self.r)
+    	self.x= self.x + self.k*(measurement-self.x);
+    	self.p=(1-self.k)*self.p;
+    	return x;
+
+
 class DataPlot(Qwt.QwtPlot):
 
     def __init__(self, *args):
         Qwt.QwtPlot.__init__(self, *args)
-	self.port = serial.Serial('/dev/ttyUSB0',9600, timeout=1)
+		self.port = serial.Serial('/dev/ttyUSB0',9600, timeout=1)
+		self.filter=kalmanFilter((0.4, 256, 100, 0)
         self.setCanvasBackground(Qt.Qt.white)
         self.alignScales()
-	self.dataFile=open("adata.csv","w")
-	self.dataFile.writelines("Time;P1,P2,P3,P4,P5\n")
+		self.dataFile=open("adata.csv","w")
+		self.dataFile.writelines("Time;P1,P2,P3,P4,P5\n")
          
-	self.ptime=0
+		self.ptime=0
         # Initialize data
         self.x = arange(0.0, 100.1, 0.5)
         self.x1 = zeros(len(self.x), Float)
@@ -96,7 +111,7 @@ class DataPlot(Qwt.QwtPlot):
 		#print data
 	except:
 		print "Unknown value"
-		
+	g=self.filter(g)	
 	
         # y moves from left to right:
         # shift y array right and assign new value y[0]
