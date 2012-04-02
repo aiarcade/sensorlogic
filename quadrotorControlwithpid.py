@@ -29,7 +29,6 @@ class mainPlot(Qt.QWidget):
 		self.QUAD=Sensor(self.socketfile,self.lockbt)
 		
 
-
 		#self.layout=Qt.QGridLayout(self)
 		self.hbox = QtGui.QHBoxLayout(self)
 		#Pressure graph
@@ -120,33 +119,90 @@ class mainPlot(Qt.QWidget):
 		self.Splitter.addWidget(self.acsSplitter)
 		self.Splitter.addWidget(self.prsSplitter)
 		self.hbox.addWidget(self.Splitter)
+		#Add some basic gui components
+		
 		self.exitButton=QtGui.QPushButton(self.prsFrame)
 		self.exitButton.setText("Exit")
+		psld = QtGui.QSlider(QtCore.Qt.Horizontal,self.prsFrame)
+		psld.setGeometry(30, 40, 100, 30)
+		isld = QtGui.QSlider(QtCore.Qt.Horizontal,self.prsFrame)
+		isld.setGeometry(30, 60, 100, 30)
+		dsld = QtGui.QSlider(QtCore.Qt.Horizontal,self.prsFrame)
+		dsld.setGeometry(30, 80, 100, 30)
+
+		psld.setMinimum(0)
+		psld.setMaximum(100)
+		psld.valueChanged[int].connect(self.changePConst)
+
+		dsld.setMinimum(0)
+		dsld.setMaximum(100)
+		dsld.valueChanged[int].connect(self.changeDConst)
+
+		isld.setMinimum(0)
+		isld.setMaximum(100)
+		isld.valueChanged[int].connect(self.changeIConst)
+
+		
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
-		self.acsPlot.replot()      
+		self.acsPlot.replot()    
+
+		self.acc =[0,0,0]
+		self.gyr =[0,0,0]
+		self.tiltcomp = 0
+		#Kalman filter
+		self.Kp = 0.0
+		self.Ki = 0.0
+		self.Kd = 0.0
+
+		#Controllers
+		self.pitchcntrl = pid(self.Kp,self.Ki,self.Kd,1,self.acc,self.gyr)
+		self.rollcntrl = pid(self.Kp,self.Ki,self.Kd,0,self.acc,self.gyr)
 		
 		#setup motors
-		self.fmotor=Motor(self.socket,"front",3)	
-		self.bmotor=Motor(self.socket,"back",3)	
-		self.lmotor=Motor(self.socket,"left",3)
-		self.rmotor=Motor(self.socket,"right",3)		
-		
+		self.fmotor=Motor(self.socket,"front")	
+		self.bmotor=Motor(self.socket,"back")	
+		self.lmotor=Motor(self.socket,"left")
+		self.rmotor=Motor(self.socket,"right")		
 		#self.fmotor.setSpeed(60)
 		
-		#Kalman filter
-		self.ROLL = 0
-		self.PITCH = 1
-		self.YAW = 2
-		#Controllers
-		self.pitchcntrl = pid(self.ROLL,self.PITCH,self.YAW)
-		self.rollcntrl = pid(self.ROLL,self.PITCH,self.YAW)
-		self.pitchcntrl.initialise(self.PITCH)
-		self.rollcntrl.initialise(self.ROLL)
-					
 		#Connection
 		self.connect(self.exitButton, Qt.SIGNAL("clicked()"), self.exitPlot)
-		self.startTimer(30)
+		self.startTimer(10)
+	def updateMotor(self):
+ 		self.tiltcomp = self.pitchcntrl.updatepid()
+		self.fmotor.speed=(self.fmotor.thrust-self.tiltcomp-self.fmotor.yaw)
+		if self.fmotor.speed<self.fmotor.minspeed:
+			self.fmotor.speed = self.fmotor.minspeed
+		self.fmotor.decodeAndSend(self.fmotor.speed)
+		self.bmotor.speed=(self.bmotor.thrust+self.tiltcomp-self.bmotor.yaw)
+		if self.bmotor.speed<self.bmotor.minspeed:
+			self.bmotor.speed = self.bmotor.minspeed
+		self.bmotor.decodeAndSend(self.bmotor.speed)
+		
+		self.tiltcomp = self.rollcntrl.updatepid()
+		self.lmotor.speed=(self.lmotor.thrust+self.tiltcomp-self.lmotor.yaw)
+		if self.lmotor.speed<self.lmotor.minspeed:
+			self.lmotor.speed = self.lmotor.minspeed
+		self.lmotor.decodeAndSend(self.lmotor.speed)
+		self.rmotor.speed=(self.rmotor.thrust-self.tiltcomp-self.rmotor.yaw)
+		if self.rmotor.speed<self.rmotor.minspeed:
+			self.rmotor.speed = self.rmotor.minspeed
+		self.rmotor.decodeAndSend(self.rmotor.speed)
+		#print self.rmotor.speed,self.fmotor.speed,self.bmotor.speed,self.lmotor.speed
+
+
+
+	def changePConst(self,value):
+		self.pitchcntrl.p=value/10.0
+		print self.pitchcntrl.p
+	def changeIConst(self,value):
+		self.pitchcntrl.i=value/10.0
+		print self.pitchcntrl.i
+	def changeDConst(self,value):
+		self.pitchcntrl.d=value/10.0
+		print self.pitchcntrl.d
+
  
 	def exitPlot(self):
 		self.QUAD.kill=0
@@ -175,13 +231,21 @@ class mainPlot(Qt.QWidget):
 		self.ay[0] =float(self.QUAD.ay)
 		self.az = concatenate((self.az[:1], self.az[:-1]), 1)
 		self.az[0] =float(self.QUAD.az)
+		
+		self.pitchcntrl.kalman.ac=self.QUAD.acc
+		self.pitchcntrl.kalman.gy=self.QUAD.gyr
+		self.rollcntrl.kalman.ac=self.QUAD.acc
+		self.rollcntrl.kalman.gy=self.QUAD.gyr
+		self.updateMotor()	
+
 		#Set data		
+
 		self.curveP1.setData(self.x, self.pitch)
 		self.curveP2.setData(self.x, self.roll)
-		self.curveA1.setData(self.x, self.yaw)
-		self.curveA2.setData(self.x, self.ax)
-		self.curveA3.setData(self.x, self.ay)
-		self.curveA4.setData(self.x, self.az)
+		self.curveA1.setData(self.x, self.az)
+		self.curveA2.setData(self.x, self.ay)
+		self.curveA3.setData(self.x, self.yaw)
+		self.curveA4.setData(self.x, self.ax)
 		self.prsPlot.replot()
 		self.acsPlot.replot()
 	
@@ -201,11 +265,12 @@ class Sensor(threading.Thread):
 		
 		threading.Thread.__init__(self, None)
 		#self.quad=basicSensor(self.sensor)
-		self.kill=1
+		self.kill=1	
 		self.ax=0
 		self.ay=0
 		self.az=0
-		self.ax=0
+		self.acc=[0,0,0]
+		self.gyr=[0,0,0]
 		self.pitch=0
 		self.roll=0
 		self.yaw=0
@@ -215,106 +280,120 @@ class Sensor(threading.Thread):
 	def run(self):
 		while self.kill:		
 			try:			
+				
 				self.readings=self.file.readline()
 				#print self.readings
 				self.decodeData()
+				
+				
 			except:
-				#print "On a wait"
+				print "On a wait"
 				continue
-	
+	def acqLock(self):
+		self.lock=1
+	def relLock(self):
+		self.lock=1
 	def decodeData(self):
 		data=self.readings.replace("\n","").replace("\r","").split("#")
-		self.roll=data[0]
-		self.pitch=data[1]
-		self.yaw=data[2]
-		self.ax=data[3]
-		self.ay=data[5]
-		self.az=data[4]
-		#print data
+		self.roll=data[3]
+		self.pitch=data[4]
+		self.yaw=data[5]
+		self.ax=data[0]
+		self.ay=data[1]
+		self.az=data[2]
+		self.acc = [float(self.ax),float(self.ay),float(self.az)]
+		self.gyr = [float(self.roll),float(self.pitch),float(self.yaw)]
+		#print self.acc,self.gyr
 
 class FlightAngle_KalmanFilter:  
-	def __init__(self,roll,pitch,yaw):
-		self.ROLL = roll
-		self.PITCH = pitch
-		self.YAW = yaw
-		self.ac = [0,0,0]
-		self.gy = [0,0,0]		
-		self.angle=[0, 0, 0] 
-		self.gyroAngle=[0, 0, 0]
-		self.x_angle=[0,0,0] 
-		self.x_bias=[0,0,0]  
-		self.P_00=[1,1,1] 
-		self.P_01=[0,0,0] 
-		self.P_10=[0,0,0] 
-		self.P_11=[1,1,1]
+	def __init__(self,axis,acc,gyr):
+		self.ROLL = 0
+		self.PITCH = 1
+		self.YAW = 2
+		self.ac = acc
+		self.gy = gyr		
+		self.angle=[0.0, 0.0, 0.0] 
+		self.gyroAngle=[0.0, 0.0, 0.0]
+		self.x_angle=[0.0,0.0,0.0] 
+		self.x_bias=[0.0,0.0,0.0]  
+		self.P_00=[1.0,1.0,1.0] 
+		self.P_01=[0.0,0.0,0.0] 
+		self.P_10=[0.0,0.0,0.0] 
+		self.P_11=[1.0,1.0,1.0]
 		self.Q_angle = 0.001  
 		self.Q_gyro = 0.003  
 		self.R_angle = 0.3
-	def getData(axis):
-		return self.angle[axis] 
-	def calculatekalman(self, axis, newAngle, newRate):  
-				
-		self.x_angle[axis] += G_Dt * (newRate - self.x_bias[axis])  
-		self.P_00[axis] += - G_Dt * (self.P_10[axis] + self.P_01[axis]) + self.Q_angle * G_Dt  
-		self.P_01[axis] += - G_Dt * self.P_11[axis]
-		self.P_10[axis] += - G_Dt * self.P_11[axis]  
-		self.P_11[axis] += + self.Q_gyro * G_Dt
-		self.y = newAngle - self.x_angle[axis]  
-		self.S = self.P_00[axis] + self.R_angle  
-		self.K_0 = self.P_00[axis] / self.S  
-		self.K_1 = self.P_10[axis] / self.S  
-		self.x_angle[axis] += self.K_0 * self.y  
-		self.x_bias[axis] += self.K_1 * self.y  
-		self.P_00[axis] -= self.K_0 * self.P_00[axis]  
-		self.P_01[axis] -= self.K_0 * self.P_01[axis]  
-		self.P_10[axis] -= self.K_1 * self.P_00[axis]  
-		self.P_11[axis] -= self.K_1 * self.P_01[axis]  
-		return self.x_angle[axis] 
-	def calculate(self):  
-		self.angle[ROLL] = self.calculatekalman(ROLL, self.ac(0), self.gy(0))  
-		self.angle[PITCH] = self.calculatekalman(PITCH, self.ac(1), self.gy(1)) 
-		self.angle[YAW] = self.calculatekalman(YAW, self.ac(2), self.gy(2)) 
-		#print self.angle[ROLL]
-		#print self.angle[PITCH]
-		#print self.angle[YAW]		
-
+		self.x = time.time()		
+		self.G_Dt=time.time() - self.x	
+		self.axis = axis
+	def calculatekalman(self):  
+		self.x_angle[self.axis] += self.G_Dt * (self.gy[self.axis] - self.x_bias[self.axis])  
+		self.P_00[self.axis] += -self.G_Dt * (self.P_10[self.axis] + self.P_01[self.axis]) + self.Q_angle * self.G_Dt  
+		self.P_01[self.axis] += -self.G_Dt * self.P_11[self.axis]
+		self.P_10[self.axis] += -self.G_Dt * self.P_11[self.axis]  
+		self.P_11[self.axis] += +self.Q_gyro * self.G_Dt
+		self.y = self.ac[self.axis] - self.x_angle[self.axis]  
+		self.S = self.P_00[self.axis] + self.R_angle  
+		self.K_0 = self.P_00[self.axis] / self.S  
+		self.K_1 = self.P_10[self.axis] / self.S  
+		self.x_angle[self.axis] += self.K_0 * self.y  
+		self.x_bias[self.axis] += self.K_1 * self.y  
+		self.P_00[self.axis] -= self.K_0 * self.P_00[self.axis]  
+		self.P_01[self.axis] -= self.K_0 * self.P_01[self.axis]  
+		self.P_10[self.axis] -= self.K_1 * self.P_00[self.axis]  
+		self.P_11[self.axis] -= self.K_1 * self.P_01[self.axis]  
+		self.G_Dt=time.time() - self.x 
+		return self.x_angle[self.axis] 
+	
 class pid:  
-	def __init__(self,roll,pitch,yaw):  
+	def __init__(self,Kp,Ki,Kd,axis,acc,gyr):  
 		self.interror=0.0  
 		self.prevstate=0.0  
 		self.differror=0.0  
-		self.p=0.5  
-		self.i=0.0  
-		self.d=0.0  
-		self.reqrdstate=0.0
-		self.kalman = FlightAngle_KalmanFilter(roll,pitch,yaw)   
+		self.p=Kp 
+		self.i=Ki  
+		self.d=Kd  
+		self.reqrdstate=0.0	
+		self.axis=axis 
+		self.acc = acc
+		self.gyr = gyr
+		self.kalman= FlightAngle_KalmanFilter(self.axis,self.acc,self.gyr) 
+		self.kalman.calculatekalman()
+ 
 	def updatepid(self):  
-		self.curstate = self.kalman.getData(axis)
+		
+		self.curstate = self.kalman.calculatekalman()
 		self.error=self.reqrdstate - self.curstate
-		self.interror+=self.error*G_Dt
-		self.interror=constrain(self.interror,-100,+100)
+		self.interror+=self.error*self.kalman.G_Dt
+		#self.interror=constrain(self.interror,-100,+100)
 		self.prevstate = self.curstate
-		self.result=self.p*self.error+self.i*self.interror-self.d*gyr[axis]  
+		self.result=self.p*self.error+self.i*self.interror-self.d*self.kalman.gy[self.axis]  
+		self.kalman.x = time.time()				
 		return (self.result)
   	def setpid(self, a, b, c):  
 		self.p=a  
 		self.i=b  
 		self.d=c  
-	def initialise(self, x):  
-  		axis=x  
 
-class Motor():
-	def __init__(self,sock,location,tries):
-		self.socket=sock
+class Motor:
+
+	def __init__(self,btfile,location):
+		self.file=btfile
 		self.location=location
-		self.trial=tries		
+		self.tiltcomp = 0
+		self.minspeed = 65
+		self.speed = 65	
+		self.thrust = 65
+		self.yaw = 0 
 	def setSpeed(self,speed):
 		self.decodeAndSend(speed)
 	def stop(self):
-		self.decodeAndSend(0)	
+		self.decodeAndSend(0)
+	def setHeight(self):
+		self.decodeAndSend(self.thrust)	
 	def decodeAndSend(self,data):
-		string=""		
-		if self.location=='front':
+		string=""	
+ 		if self.location=='front':
 			string='#'
 		if self.location=='back':
 			string='$'
@@ -322,16 +401,13 @@ class Motor():
 			string='%'
 		if self.location=='right':
 			string='&'
-		for	i in range(0,self.trial):
-			self.socket.send(string)
-			self.socket.send(char(data))
+		string=string+chr(int(data))+"."
+		#print string
+		for i in range(3):
+			self.file.send(string)
 		
+						
 		
-		
-		
-			
-	
-        
 app = Qt.QApplication(sys.argv)
 QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
 
