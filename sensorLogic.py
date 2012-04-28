@@ -6,10 +6,53 @@ import PyQt4.Qwt5 as Qwt
 import serial
 from PyQt4.Qwt5.anynumpy import *
 import random
+import time
+import thread
+import threading
+import sys
+
+class Logger():
+	def __init__(self,channel):
+		return
+	def log(self,mesg):
+		print mesg
+
+class kalmanFilter():
+	def __init__(self,q,r,p,initial_value):
+		self.q=q
+		self.p=p
+		self.r=r
+		self.x=initial_value
+	def addSample(self,measurement):
+		self.p=self.p+self.q
+		self.k=self.p/(self.p+self.r)
+		self.x= self.x + self.k*(measurement-self.x)
+		self.p=(1-self.k)*self.p
+		return self.x
 
 class mainPlot(Qt.QWidget):
 	def __init__(self, *args):
+
+	
+		#create a logger to handle logs
 		
+		self.uiLogger=Logger(sys.stdout)
+		
+
+		# Initialize sensors #Detect and Attach the sensors
+		print "Connecting to sensors"
+		self.sensor1=Sensor("/dev/ttyUSB0",1,self.uiLogger)
+		self.sensor2=Sensor("/dev/ttyUSB1",1,self.uiLogger)
+		
+		time.sleep(1)
+		
+		#setup kalaman filters for accelerometers
+		self.A1filter=kalmanFilter(0.4, 256, 100, 0)
+		self.A2filter=kalmanFilter(0.4, 256, 100, 0)
+		self.A3filter=kalmanFilter(0.4, 256, 100, 0)
+		self.A4filter=kalmanFilter(0.4, 256, 100, 0)
+		self.A5filter=kalmanFilter(0.4, 256, 100, 0)
+			
 		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		acsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		Qt.QWidget.__init__(self, *args)
@@ -40,10 +83,18 @@ class mainPlot(Qt.QWidget):
 		self.curveP4.setPen(Qt.QPen(prsPenColors[3]))
 		self.curveP5.setPen(Qt.QPen(prsPenColors[4]))
 		
-		self.x = arange(0.0, 100.1, 0.5)
-		self.p1 = zeros(len(self.x), Float)
-		self.curveP1.setData(self.x, self.p1)
-		
+		self.px = arange(0.0, 100.1, 0.5)
+		self.p1 = zeros(len(self.px), Float)
+		self.curveP1.setData(self.px, self.p1)
+		self.p2 = zeros(len(self.px), Float)
+		self.curveP2.setData(self.px, self.p2)
+		self.p3 = zeros(len(self.px), Float)
+		self.curveP3.setData(self.px, self.p3)
+		self.p4 = zeros(len(self.px), Float)
+		self.curveP4.setData(self.px, self.p4)
+		self.p5 = zeros(len(self.px), Float)
+		self.curveP5.setData(self.px, self.p5)			
+
 		#Acceleration
 		self.acsPlot=Qwt.QwtPlot(self)
 		self.acsPlot.setTitle('Acceleration Sensor')
@@ -69,10 +120,18 @@ class mainPlot(Qt.QWidget):
 		self.curveA4.setPen(Qt.QPen(acsPenColors[3]))
 		self.curveA5.setPen(Qt.QPen(acsPenColors[4]))
 		
-		
-		self.a1 = zeros(len(self.x), Float)
-		self.curveA1.setData(self.x, self.a1)
-		
+		self.ax = arange(0.0, 100.1, 0.5)
+		self.a1 = zeros(len(self.ax), Float)
+		self.curveA1.setData(self.ax, self.a1)
+		self.a2 = zeros(len(self.ax), Float)
+		self.curveA2.setData(self.ax, self.a2)
+		self.a3 = zeros(len(self.ax), Float)
+		self.curveA3.setData(self.ax, self.a3)
+		self.a4 = zeros(len(self.ax), Float)
+		self.curveA4.setData(self.ax, self.a4)
+		self.a5 = zeros(len(self.ax), Float)
+		self.curveA5.setData(self.ax, self.a5)
+
 		self.prsFrame=QtGui.QFrame(self)
 		self.prsFrame.setFrameShape(QtGui.QFrame.StyledPanel)
 
@@ -93,30 +152,101 @@ class mainPlot(Qt.QWidget):
 		
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
-		self.acsPlot.replot()      
+		self.acsPlot.replot()
+
+	def timerEvent(self, e):
+		
+		return
+
+	def closeEvent(self, event):
+		self.sensor1.exitMe=0
+		self.sensor2.exitMe=0
+		
+		#event.accept()   
+	def processAccdata(self,data):
+		 
 
 
 class basicSensor():
-	def __init__(self, device):
-		self.port = serial.Serial(device,9600, timeout=1)
-	def readValue():
-		value=self.port.readline()
-		return value
-	def close():
-		self.port.close()
+	def __init__(self, device,logger):
+		self.device=device
+		self.port="NODEVICE"
+		self.Logger=logger
+		try:
+			self.port = serial.Serial(self.device,9600, timeout=1)
+			
+		except:
+			self.port="NODEVICE"
+			self.Logger.log("CRT:basic_sensor_construct:Unable to open device "+	self.device)
+	def reconnect(self):
+		if self.port=='NODEVICE' :
+			try:
+				self.port = serial.Serial(self.device,9600, timeout=1)
+			except:
+				#print "Unable to opendevice on retry"+	self.device
+				self.port="NODEVICE"		
+	def readValue(self):
+		if self.port !='NODEVICE':
+			try:
+				value=self.port.readline()
+				return value
+			except:
+				value=-9888
+				self.Logger.log("CRT:basic_sensor_readvalue:Unable to read from "+	self.device)
+				return value
+				
+		
+	def close(self):
+		#print "Trying to close"+str(self.port)
+		if self.port!='NODEVICE':
+			try:
+				self.Logger.log("MSG:basic_sensor_close:Closing device "+self.device)
+				self.port.close()
+			except:
+				self.Logger.log("CRT:basic_sensor_close:Unable to close "+	self.device)
+		else:
+			self.Logger.log("CRT:basic_sensor_close:Not opened "+	self.device)
+		
 		
 class Sensor(threading.Thread):
-	def __init__(self,sensor):
-		threading.Thread.__init__(self, None)
+	def __init__(self,sensor,retry,logger):
+	 	threading.Thread.__init__(self, None)
+		self.Logger=logger
+		self.retry=retry
+		self.exitMe=1
+		self.type='NONE'
+		self.STATUS='NONE'
+		self.data=[]
+		self.sensor=basicSensor(sensor,self.Logger)
 		self.start()
 	def run(self):
-		
-		print "hello i am a thread"
+		while(self.exitMe):
+			#print self.sensor.port
+			if self.sensor.port!='NODEVICE':
+					data=self.sensor.readValue()
+					if data==-9888:
+						self.STATUS="READERROR"
+					else:
+						data=data.replace("\n","").replace("\r","")
+						self.data=data[:-1].split("#")
+						if self.data[0]=='ACS':
+							self.type='ACS'
+						elif self.data[0]=='PRS':
+							self.type='PRS'
+						self.STATUS="OK"
+						print self.data
+						
+			else:
+				if self.retry==1:
+					self.sensor.reconnect()
+			#break
+									
+		self.sensor.close()
+
 
         
 app = Qt.QApplication(sys.argv)
 QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('Cleanlooks'))
-print "hello"
 demo = mainPlot()
 demo.resize(1000, 700)
 demo.show()
