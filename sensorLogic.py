@@ -54,7 +54,7 @@ class mainPlot(Qt.QWidget):
 		self.A5filter=kalmanFilter(0.4, 256, 100, 0)
 			
 		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
-		acsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
+		acsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
 		Qt.QWidget.__init__(self, *args)
 		#self.layout=Qt.QGridLayout(self)
 		self.hbox = QtGui.QHBoxLayout(self)
@@ -150,11 +150,54 @@ class mainPlot(Qt.QWidget):
 		self.Splitter.addWidget(self.prsSplitter)
 		self.hbox.addWidget(self.Splitter)
 		
+		self.startTimer(3)
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
 		self.acsPlot.replot()
 
 	def timerEvent(self, e):
+		acsdata=[]
+		prsdata=[]
+		
+		if self.sensor1.type=='ACS':
+			acsdata=self.processACSdata(self.sensor1.data)
+		if self.sensor2.type=='ACS':
+			acsdata=self.processACSdata(self.sensor2.data)
+		if self.sensor1.type=='PRS':
+			prsdata=self.processPRSdata(self.sensor1.data)
+		if self.sensor2.type=='PRS':
+			prsdata=self.processPRSdata(self.sensor2.data)
+
+		print acsdata
+		#print prsdata
+
+		#update array and replot 		
+		self.a1 = concatenate((self.a1[:1], self.a1[:-1]), 1)
+		self.a1[0] =acsdata[0]
+		self.curveA1.setData(self.ax, self.a1)
+		
+		self.a2 = concatenate((self.a2[:1], self.a2[:-1]), 1)
+		self.a2[0] =acsdata[1]
+		self.curveA2.setData(self.ax, self.a2)
+
+		self.a3 = concatenate((self.a3[:1], self.a3[:-1]), 1)
+		self.a3[0] =acsdata[2]
+		self.curveA3.setData(self.ax, self.a3)
+
+		self.a4 = concatenate((self.a4[:1], self.a4[:-1]), 1)
+		self.a4[0] =acsdata[3]
+		self.curveA4.setData(self.ax, self.a4)
+	
+		self.a5 = concatenate((self.a5[:1], self.a5[:-1]), 1)
+		self.a5[0] =acsdata[4]
+		self.curveA5.setData(self.ax, self.a5)
+
+
+		self.acsPlot.replot()
+		
+
+		
+
 		
 		return
 
@@ -163,7 +206,53 @@ class mainPlot(Qt.QWidget):
 		self.sensor2.exitMe=0
 		
 		#event.accept()   
-	def processAccdata(self,data):
+	def processACSdata(self,data):
+		filterout=[]
+		a1=data[1]
+		a1=self.calculateG(a1)
+		a1=self.A1filter.addSample(a1)
+		filterout.append(a1)
+		
+		a2=data[2]
+		a2=self.calculateG(a2)
+		a2=self.A2filter.addSample(a2)
+		filterout.append(a2)
+		
+		a3=data[3]
+		a3=self.calculateG(a3)
+		a3=self.A3filter.addSample(a3)
+		filterout.append(a3)
+		
+		a4=data[4]
+		a4=self.calculateG(a4)
+		a4=self.A4filter.addSample(a4)
+		filterout.append(a4)
+		
+		a5=data[5]
+		a5=self.calculateG(a5)
+		a5=self.A5filter.addSample(a5)
+		filterout.append(a5)		
+		
+		return filterout
+		
+	def processPRSdata(self,data):
+		dataout=[data[1],data[2],data[3],data[4],data[5]]
+		return dataout
+
+
+
+	def calculateG(self,volt):
+		volt=interp(float(volt),[0,1023],[0,5])
+		volt=volt-1.35
+		g=(volt*1000)/800
+		g=round(g,3)
+		return g
+
+
+
+		
+	
+		
 		 
 
 
@@ -234,7 +323,7 @@ class Sensor(threading.Thread):
 						elif self.data[0]=='PRS':
 							self.type='PRS'
 						self.STATUS="OK"
-						print self.data
+						#print self.data
 						
 			else:
 				if self.retry==1:
