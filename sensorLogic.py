@@ -10,6 +10,7 @@ import time
 import thread
 import threading
 import sys
+import math
 
 class Logger():
 	def __init__(self,channel):
@@ -57,7 +58,7 @@ class mainPlot(Qt.QWidget):
 		self.prsdata=[]
 		
 			
-		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
+		prsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
 		acsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
 		Qt.QWidget.__init__(self, *args)
 		#self.layout=Qt.QGridLayout(self)
@@ -154,7 +155,7 @@ class mainPlot(Qt.QWidget):
 		self.Splitter.addWidget(self.prsSplitter)
 		self.hbox.addWidget(self.Splitter)
 		
-		self.startTimer(3)
+		self.startTimer(10)
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
 		self.acsPlot.replot()
@@ -168,14 +169,14 @@ class mainPlot(Qt.QWidget):
 			self.acsdata=self.processACSdata(self.sensor1.data)
 		elif self.sensor2.type=='ACS'and self.sensor2.STATUS=='OK' :
 			self.acsdata=self.processACSdata(self.sensor2.data)
-		elif self.sensor1.type=='PRS' and self.sensor1.STATUS=='OK':
+		if self.sensor1.type=='PRS' and self.sensor1.STATUS=='OK':
 			self.prsdata=self.processPRSdata(self.sensor1.data)
 		elif self.sensor2.type=='PRS' and self.sensor2.STATUS=='OK':
 			self.prsdata=self.processPRSdata(self.sensor2.data)
 		
 	
 		#print acsdata
-		#print prsdata
+		
 
 		#update array and replot 		
 		if 	len(self.acsdata)>0:	
@@ -234,6 +235,7 @@ class mainPlot(Qt.QWidget):
 		#event.accept()   
 	def processACSdata(self,data):
 		#print data
+		#print self.calculateAngles(data)
 		filterout=[]
 		a1=data[1]
 		a1=self.calculateG(a1)
@@ -263,16 +265,40 @@ class mainPlot(Qt.QWidget):
 		return filterout
 		
 	def processPRSdata(self,data):
-		dataout=[data[1],data[2],data[3],data[4],data[5]]
+		#print data
+		dataout=[float(data[1]),float(data[2]),float(data[3]),float(data[4]),float(data[5])]
+		#print dataout
 		return dataout
 
 
+	def calculateAngles(self,data):
+		angles=[]
+		for i in data[1:]:
+			angles.append(self.calculateAngle(float(i)))
+		return angles
+			
+	def calculateAngle(self,volt):
+		
+		angle=0
+		volt=(volt-1.35)/0.44
+		print volt
+		try:		
+			angle=math.asin(volt)
+		#angle=angle*180/3.14
+		except:
+			angle=0
+		return angle
+		
 
+		
+		
 	def calculateG(self,volt):
-		volt=interp(float(volt),[0,1023],[0,5])
-		volt=volt-1.35
+		voltage=interp(float(volt),[0,1023],[0,5])
+		volt=voltage-1.35
+		angle=self.calculateAngle(voltage)
 		g=(volt*1000)/800
-		g=round(g,3)
+		gcorrected=g*math.sin(angle)
+		gcorrected=round(gcorrected,3)
 		return g
 
 
@@ -349,8 +375,10 @@ class Sensor(threading.Thread):
 							self.type='ACS'
 						elif self.data[0]=='PRS':
 							self.type='PRS'
+							
 						self.STATUS="OK"
-						print self.data
+												
+						
 						
 			else:
 				if self.retry==1:
