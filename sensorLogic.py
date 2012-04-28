@@ -39,7 +39,7 @@ class mainPlot(Qt.QWidget):
 		self.uiLogger=Logger(sys.stdout)
 		
 
-		# Initialize sensors #Detect and Attach the sensors
+		# Initialize sensors #Detect and Attach all sensors
 		print "Connecting to sensors"
 		self.sensor1=Sensor("/dev/ttyUSB0",1,self.uiLogger)
 		self.sensor2=Sensor("/dev/ttyUSB1",1,self.uiLogger)
@@ -52,6 +52,10 @@ class mainPlot(Qt.QWidget):
 		self.A3filter=kalmanFilter(0.4, 256, 100, 0)
 		self.A4filter=kalmanFilter(0.4, 256, 100, 0)
 		self.A5filter=kalmanFilter(0.4, 256, 100, 0)
+
+		self.acsdata=[]
+		self.prsdata=[]
+		
 			
 		prsPenColors=[Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red,Qt.Qt.red]
 		acsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
@@ -156,44 +160,66 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.replot()
 
 	def timerEvent(self, e):
-		acsdata=[]
-		prsdata=[]
 		
-		if self.sensor1.type=='ACS':
-			acsdata=self.processACSdata(self.sensor1.data)
-		if self.sensor2.type=='ACS':
-			acsdata=self.processACSdata(self.sensor2.data)
-		if self.sensor1.type=='PRS':
-			prsdata=self.processPRSdata(self.sensor1.data)
-		if self.sensor2.type=='PRS':
-			prsdata=self.processPRSdata(self.sensor2.data)
-
-		print acsdata
+		
+		
+		
+		if self.sensor1.type=='ACS' and self.sensor1.STATUS=='OK' :
+			self.acsdata=self.processACSdata(self.sensor1.data)
+		elif self.sensor2.type=='ACS'and self.sensor2.STATUS=='OK' :
+			self.acsdata=self.processACSdata(self.sensor2.data)
+		elif self.sensor1.type=='PRS' and self.sensor1.STATUS=='OK':
+			self.prsdata=self.processPRSdata(self.sensor1.data)
+		elif self.sensor2.type=='PRS' and self.sensor2.STATUS=='OK':
+			self.prsdata=self.processPRSdata(self.sensor2.data)
+		
+	
+		#print acsdata
 		#print prsdata
 
 		#update array and replot 		
-		self.a1 = concatenate((self.a1[:1], self.a1[:-1]), 1)
-		self.a1[0] =acsdata[0]
-		self.curveA1.setData(self.ax, self.a1)
+		if 	len(self.acsdata)>0:	
+			self.a1 = concatenate((self.a1[:1], self.a1[:-1]), 1)
+			self.a1[0] =self.acsdata[0]
+			self.curveA1.setData(self.ax, self.a1)
 		
-		self.a2 = concatenate((self.a2[:1], self.a2[:-1]), 1)
-		self.a2[0] =acsdata[1]
-		self.curveA2.setData(self.ax, self.a2)
+			self.a2 = concatenate((self.a2[:1], self.a2[:-1]), 1)
+			self.a2[0] =self.acsdata[1]
+			self.curveA2.setData(self.ax, self.a2)
 
-		self.a3 = concatenate((self.a3[:1], self.a3[:-1]), 1)
-		self.a3[0] =acsdata[2]
-		self.curveA3.setData(self.ax, self.a3)
+			self.a3 = concatenate((self.a3[:1], self.a3[:-1]), 1)
+			self.a3[0] =self.acsdata[2]
+			self.curveA3.setData(self.ax, self.a3)
 
-		self.a4 = concatenate((self.a4[:1], self.a4[:-1]), 1)
-		self.a4[0] =acsdata[3]
-		self.curveA4.setData(self.ax, self.a4)
+			self.a4 = concatenate((self.a4[:1], self.a4[:-1]), 1)
+			self.a4[0] =self.acsdata[3]
+			self.curveA4.setData(self.ax, self.a4)
 	
-		self.a5 = concatenate((self.a5[:1], self.a5[:-1]), 1)
-		self.a5[0] =acsdata[4]
-		self.curveA5.setData(self.ax, self.a5)
+			self.a5 = concatenate((self.a5[:1], self.a5[:-1]), 1)
+			self.a5[0] =self.acsdata[4]
+			self.curveA5.setData(self.ax, self.a5)
+			self.acsPlot.replot()
+		if 	len(self.prsdata)>0:	
+			self.p1 = concatenate((self.p1[:1], self.p1[:-1]), 1)
+			self.p1[0] =self.prsdata[0]
+			self.curveP1.setData(self.px, self.p1)
+		
+			self.p2 = concatenate((self.p2[:1], self.p2[:-1]), 1)
+			self.p2[0] =self.prsdata[1]
+			self.curveP2.setData(self.px, self.p2)
 
+			self.p3 = concatenate((self.p3[:1], self.p3[:-1]), 1)
+			self.p3[0] =self.prsdata[2]
+			self.curveP3.setData(self.px, self.p3)
 
-		self.acsPlot.replot()
+			self.p4 = concatenate((self.p4[:1], self.p4[:-1]), 1)
+			self.p4[0] =self.prsdata[3]
+			self.curveP4.setData(self.px, self.p4)
+	
+			self.p5 = concatenate((self.p5[:1], self.p5[:-1]), 1)
+			self.p5[0] =self.prsdata[4]
+			self.curveP5.setData(self.px, self.p5)
+			self.prsPlot.replot()
 		
 
 		
@@ -207,6 +233,7 @@ class mainPlot(Qt.QWidget):
 		
 		#event.accept()   
 	def processACSdata(self,data):
+		#print data
 		filterout=[]
 		a1=data[1]
 		a1=self.calculateG(a1)
@@ -323,11 +350,13 @@ class Sensor(threading.Thread):
 						elif self.data[0]=='PRS':
 							self.type='PRS'
 						self.STATUS="OK"
-						#print self.data
+						print self.data
 						
 			else:
 				if self.retry==1:
 					self.sensor.reconnect()
+			if self.sensor.port=='NODEVICE':
+					self.STATUS="ERROR"
 			#break
 									
 		self.sensor.close()
