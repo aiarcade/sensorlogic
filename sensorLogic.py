@@ -30,6 +30,17 @@ class kalmanFilter():
 		self.x= self.x + self.k*(measurement-self.x)
 		self.p=(1-self.k)*self.p
 		return self.x
+class Recorder():
+	def __init__(self,filename):
+		self.filename=filename
+		self.recorder=open(filename,"w")
+	def record(self,data):
+		self.recorder.writelines(data)
+	def close(self):
+		self.recorder.close()
+		
+		
+
 
 class mainPlot(Qt.QWidget):
 	def __init__(self, *args):
@@ -38,8 +49,8 @@ class mainPlot(Qt.QWidget):
 		#create a logger to handle logs
 		
 		self.uiLogger=Logger(sys.stdout)
-		
-
+		self.ACSrecorder=Recorder("acc"+str(time.time())+".csv")
+		self.PRSrecorder=Recorder("prs"+str(time.time())+".csv")
 		# Initialize sensors #Detect and Attach all sensors
 		print "Connecting to sensors"
 		self.sensor1=Sensor("/dev/ttyUSB0",1,self.uiLogger)
@@ -56,8 +67,17 @@ class mainPlot(Qt.QWidget):
 
 		self.acsdata=[]
 		self.prsdata=[]
+		self.displacement=[0.0,0.0,0.0,0.0,0.0]
 		
-			
+		self.acsError=[0,0,0,0,0]
+		self.prsError=[0,0,0,0,0]
+		self.acsCalibrate=0	
+		self.prsCalibrate=0	
+		self.timeInterval=10
+		self.recordCounter=0
+		self.record=0
+		
+
 		prsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
 		acsPenColors=[Qt.Qt.red,Qt.Qt.green,Qt.Qt.black,Qt.Qt.cyan,Qt.Qt.blue]
 		Qt.QWidget.__init__(self, *args)
@@ -71,15 +91,15 @@ class mainPlot(Qt.QWidget):
 		self.prsPlot.plotLayout().setAlignCanvasToScales(True)
 		#self.layout.addWidget( self.prsPlot, 0, 0)
 		
-		self.curveP1 = Qwt.QwtPlotCurve("P1")
+		self.curveP1 = Qwt.QwtPlotCurve("5")
 		self.curveP1.attach(self.prsPlot)
-		self.curveP2 = Qwt.QwtPlotCurve("P2")
+		self.curveP2 = Qwt.QwtPlotCurve("4")
 		self.curveP2.attach(self.prsPlot)
-		self.curveP3 = Qwt.QwtPlotCurve("P3")
+		self.curveP3 = Qwt.QwtPlotCurve("3")
 		self.curveP3.attach(self.prsPlot)
-		self.curveP4 = Qwt.QwtPlotCurve("P4")
+		self.curveP4 = Qwt.QwtPlotCurve("2")
 		self.curveP4.attach(self.prsPlot)
-		self.curveP5 = Qwt.QwtPlotCurve("P5")
+		self.curveP5 = Qwt.QwtPlotCurve("1")
 		self.curveP5.attach(self.prsPlot)
 		
 		self.curveP1.setPen(Qt.QPen(prsPenColors[0]))
@@ -108,15 +128,15 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.plotLayout().setAlignCanvasToScales(True)
 		#self.layout.addWidget( self.acsPlot, 1, 0)
 		
-		self.curveA1 = Qwt.QwtPlotCurve("A1")
+		self.curveA1 = Qwt.QwtPlotCurve("4")
 		self.curveA1.attach(self.acsPlot)
-		self.curveA2 = Qwt.QwtPlotCurve("A2")
+		self.curveA2 = Qwt.QwtPlotCurve("3")
 		self.curveA2.attach(self.acsPlot)
-		self.curveA3 = Qwt.QwtPlotCurve("A3")
+		self.curveA3 = Qwt.QwtPlotCurve("1")
 		self.curveA3.attach(self.acsPlot)
-		self.curveA4 = Qwt.QwtPlotCurve("A4")
+		self.curveA4 = Qwt.QwtPlotCurve("2")
 		self.curveA4.attach(self.acsPlot)
-		self.curveA5 = Qwt.QwtPlotCurve("A5")
+		self.curveA5 = Qwt.QwtPlotCurve("#")
 		self.curveA5.attach(self.acsPlot)
 		
 		self.curveA1.setPen(Qt.QPen(acsPenColors[0]))
@@ -125,6 +145,8 @@ class mainPlot(Qt.QWidget):
 		self.curveA4.setPen(Qt.QPen(acsPenColors[3]))
 		self.curveA5.setPen(Qt.QPen(acsPenColors[4]))
 		
+		self.prsPlot.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.RightLegend)
+		self.acsPlot.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.RightLegend)		
 		self.ax = arange(0.0, 100.1, 0.5)
 		self.a1 = zeros(len(self.ax), Float)
 		self.curveA1.setData(self.ax, self.a1)
@@ -154,11 +176,33 @@ class mainPlot(Qt.QWidget):
 		self.Splitter.addWidget(self.acsSplitter)
 		self.Splitter.addWidget(self.prsSplitter)
 		self.hbox.addWidget(self.Splitter)
+
+		#add some button for calibration
+		self.A1calbutton= QtGui.QPushButton(self.acsFrame)
+		self.A1calbutton.setText("Calibrate ACS")
+		self.A1calbutton.setGeometry(30, 40, 100, 30)
+		self.connect(self.A1calbutton, Qt.SIGNAL("clicked()"), self.calibrateACS)
 		
-		self.startTimer(10)
+		self.Recbutton= QtGui.QPushButton(self.acsFrame)
+		self.Recbutton.setGeometry(150, 40, 100, 30)
+		self.Recbutton.setText("Start Record")
+		self.connect(self.Recbutton, Qt.SIGNAL("clicked()"), self.startRecord)
+
+		self.startTimer(self.timeInterval)
 		self.setLayout(self.hbox)
 		self.prsPlot.replot()
 		self.acsPlot.replot()
+
+	def calibrateACS(self):
+		self.acsCalibrate=1
+	def startRecord(self):
+		self.record=not self.record
+		if self.record==0:
+			self.Recbutton.setText("Start Record")
+			self.recordCounter=0
+		else:
+			self.Recbutton.setText("Stop Record")
+
 
 	def timerEvent(self, e):
 		
@@ -179,7 +223,8 @@ class mainPlot(Qt.QWidget):
 		
 
 		#update array and replot 		
-		if 	len(self.acsdata)>0:	
+		if 	len(self.acsdata)>0:
+			
 			self.a1 = concatenate((self.a1[:1], self.a1[:-1]), 1)
 			self.a1[0] =self.acsdata[0]
 			self.curveA1.setData(self.ax, self.a1)
@@ -221,46 +266,73 @@ class mainPlot(Qt.QWidget):
 			self.p5[0] =self.prsdata[4]
 			self.curveP5.setData(self.px, self.p5)
 			self.prsPlot.replot()
-		
-
+		if self.record==1:	
+			self.ACSrecorder.record(str(self.recordCounter)+","+str(self.a1[0])+","+str(self.a2[0])+","+str(self.a3[0])+","+str(self.a4[0])+","+str(self.a5[0])+"\n")
+			self.PRSrecorder.record(str(self.recordCounter)+","+str(self.p1[0])+","+str(self.p2[0])+","+str(self.p3[0])+","+str(self.p4[0])+","+str(self.p5[0])+"\n")
+			self.recordCounter=self.recordCounter+1
+		if self.recordCounter>10000000:
+			self.recordCounter=0
 		
 
 		
 		return
 
+	def calculateDisp(self,prevAcc,currAcc):
+		time=self.timeInterval/1000.0
+		print time
+		disp=(prevAcc*(time)**2)/2+.25*(currAcc-prevAcc)*(time)**2
+		return disp*1000.0
+
 	def closeEvent(self, event):
 		self.sensor1.exitMe=0
 		self.sensor2.exitMe=0
+		self.ACSrecorder.close()
 		
 		#event.accept()   
 	def processACSdata(self,data):
-		#print data
-		#print self.calculateAngles(data)
+		
 		filterout=[]
-		a1=data[1]
-		a1=self.calculateG(a1)
-		a1=self.A1filter.addSample(a1)
-		filterout.append(a1)
 		
-		a2=data[2]
-		a2=self.calculateG(a2)
-		a2=self.A2filter.addSample(a2)
-		filterout.append(a2)
+		#data=[int(data[1]),int(data[2]),int(data[3]),int(data[4]),int(data[5])]
+		#print data
+		#print self.acsError
+		#data=[data[1]-self.acsError[0],data[2]-self.acsError[1],data[3]-self.acsError[2],data[4]-self.acsError[3],data[5]-self.acsError[4]]
+		try:
+			a1=data[1]
+			a1=self.calculateG(a1)
+			a1=self.A1filter.addSample(a1)
+			#filterout.append(a1)
 		
-		a3=data[3]
-		a3=self.calculateG(a3)
-		a3=self.A3filter.addSample(a3)
-		filterout.append(a3)
+			a2=data[2]
+			a2=self.calculateG(a2)
+			a2=self.A2filter.addSample(a2)
+			#filterout.append(a2)
 		
-		a4=data[4]
-		a4=self.calculateG(a4)
-		a4=self.A4filter.addSample(a4)
-		filterout.append(a4)
+			a3=data[3]
+			a3=self.calculateG(a3)
+			a3=self.A3filter.addSample(a3)
+			#filterout.append(a3)
 		
-		a5=data[5]
-		a5=self.calculateG(a5)
-		a5=self.A5filter.addSample(a5)
-		filterout.append(a5)		
+			a4=data[4]
+			a4=self.calculateG(a4)
+			a4=self.A4filter.addSample(a4)
+			#filterout.append(a4)
+		
+			a5=data[5]
+			a5=self.calculateG(a5)
+			a5=self.A5filter.addSample(a5)
+			#filterout.append(a5)
+			if self.acsCalibrate==1:
+				self.acsError=[a1,a2,a3,a4,a5]
+				self.acsCalibrate=0
+				self.ACSrecorder.record("Calibrating ..........")
+			filterout=[a1-self.acsError[0],a2-self.acsError[1],a3-self.acsError[2],a4-self.acsError[3],a5-self.acsError[4]]
+
+
+		except:
+				sys.exc_info()[0]
+				self.uiLogger.log("WRN:process_acs_data:empty data array")
+				filterout=[0,0,0,0,0]	
 		
 		return filterout
 		
@@ -281,7 +353,6 @@ class mainPlot(Qt.QWidget):
 		
 		angle=0
 		volt=(volt-1.35)/0.44
-		print volt
 		try:		
 			angle=math.asin(volt)
 		#angle=angle*180/3.14
@@ -292,14 +363,12 @@ class mainPlot(Qt.QWidget):
 
 		
 		
-	def calculateG(self,volt):
-		voltage=interp(float(volt),[0,1023],[0,5])
+	def calculateG(self,adcvalue):
+		voltage=interp(float(adcvalue),[0,1023],[0,5])
 		volt=voltage-1.35
-		angle=self.calculateAngle(voltage)
 		g=(volt*1000)/800
-		gcorrected=g*math.sin(angle)
-		gcorrected=round(gcorrected,3)
-		return g
+		gcorrected=round(g,3)
+		return gcorrected*9.8
 
 
 
