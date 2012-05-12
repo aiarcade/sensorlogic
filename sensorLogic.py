@@ -182,6 +182,12 @@ class mainPlot(Qt.QWidget):
 		self.A1calbutton.setText("Calibrate ACS")
 		self.A1calbutton.setGeometry(30, 40, 100, 30)
 		self.connect(self.A1calbutton, Qt.SIGNAL("clicked()"), self.calibrateACS)
+
+		self.P1calbutton= QtGui.QPushButton(self.prsFrame)
+		self.P1calbutton.setText("Calibrate PRS")
+		self.P1calbutton.setGeometry(30, 40, 100, 30)
+		self.connect(self.P1calbutton, Qt.SIGNAL("clicked()"), self.calibratePRS)
+
 		
 		self.Recbutton= QtGui.QPushButton(self.acsFrame)
 		self.Recbutton.setGeometry(150, 40, 100, 30)
@@ -195,6 +201,9 @@ class mainPlot(Qt.QWidget):
 
 	def calibrateACS(self):
 		self.acsCalibrate=1
+	def calibratePRS(self):
+		self.prsCalibrate=1
+
 	def startRecord(self):
 		self.record=not self.record
 		if self.record==0:
@@ -325,7 +334,7 @@ class mainPlot(Qt.QWidget):
 			if self.acsCalibrate==1:
 				self.acsError=[a1,a2,a3,a4,a5]
 				self.acsCalibrate=0
-				self.ACSrecorder.record("Calibrating ..........")
+				
 			filterout=[a1-self.acsError[0],a2-self.acsError[1],a3-self.acsError[2],a4-self.acsError[3],a5-self.acsError[4]]
 
 
@@ -339,6 +348,10 @@ class mainPlot(Qt.QWidget):
 	def processPRSdata(self,data):
 		#print data
 		dataout=[float(data[1]),float(data[2]),float(data[3]),float(data[4]),float(data[5])]
+		if self.prsCalibrate==1:
+			self.prsError=[dataout[0],dataout[1],dataout[2],dataout[3],dataout[4]]
+			self.prsCalibrate=0
+		dataout=[dataout[0]-self.prsError[0],dataout[1]-self.prsError[1],dataout[2]-self.prsError[2],dataout[3]-self.prsError[3],dataout[4]-self.prsError[4]]		
 		#print dataout
 		return dataout
 
