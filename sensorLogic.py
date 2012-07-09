@@ -91,15 +91,15 @@ class mainPlot(Qt.QWidget):
 		self.prsPlot.plotLayout().setAlignCanvasToScales(True)
 		#self.layout.addWidget( self.prsPlot, 0, 0)
 		
-		self.curveP1 = Qwt.QwtPlotCurve("5")
+		self.curveP1 = Qwt.QwtPlotCurve("1")
 		self.curveP1.attach(self.prsPlot)
-		self.curveP2 = Qwt.QwtPlotCurve("4")
+		self.curveP2 = Qwt.QwtPlotCurve("2")
 		self.curveP2.attach(self.prsPlot)
 		self.curveP3 = Qwt.QwtPlotCurve("3")
 		self.curveP3.attach(self.prsPlot)
-		self.curveP4 = Qwt.QwtPlotCurve("2")
+		self.curveP4 = Qwt.QwtPlotCurve("4")
 		self.curveP4.attach(self.prsPlot)
-		self.curveP5 = Qwt.QwtPlotCurve("1")
+		self.curveP5 = Qwt.QwtPlotCurve("5")
 		self.curveP5.attach(self.prsPlot)
 		
 		self.curveP1.setPen(Qt.QPen(prsPenColors[0]))
@@ -128,13 +128,13 @@ class mainPlot(Qt.QWidget):
 		self.acsPlot.plotLayout().setAlignCanvasToScales(True)
 		#self.layout.addWidget( self.acsPlot, 1, 0)
 		
-		self.curveA1 = Qwt.QwtPlotCurve("4")
+		self.curveA1 = Qwt.QwtPlotCurve("1")
 		self.curveA1.attach(self.acsPlot)
-		self.curveA2 = Qwt.QwtPlotCurve("3")
+		self.curveA2 = Qwt.QwtPlotCurve("2")
 		self.curveA2.attach(self.acsPlot)
-		self.curveA3 = Qwt.QwtPlotCurve("1")
+		self.curveA3 = Qwt.QwtPlotCurve("3")
 		self.curveA3.attach(self.acsPlot)
-		self.curveA4 = Qwt.QwtPlotCurve("2")
+		self.curveA4 = Qwt.QwtPlotCurve("4")
 		self.curveA4.attach(self.acsPlot)
 		self.curveA5 = Qwt.QwtPlotCurve("#")
 		self.curveA5.attach(self.acsPlot)
@@ -344,15 +344,22 @@ class mainPlot(Qt.QWidget):
 				filterout=[0,0,0,0,0]	
 		
 		return filterout
-		
+	
+	def calculatePressure(self,sensorValue):
+		error=0
+		voltage = sensorValue/204.6; 
+		pressure=(((voltage+error)/5.0)-0.5)/0.057
+		return pressure
+	
 	def processPRSdata(self,data):
-		#print data
+		
 		dataout=[float(data[1]),float(data[2]),float(data[3]),float(data[4]),float(data[5])]
+		dataout=[self.calculatePressure(dataout[0]),self.calculatePressure(dataout[1]),self.calculatePressure(dataout[2]),self.calculatePressure(dataout[3]),self.calculatePressure(dataout[4])]
 		if self.prsCalibrate==1:
 			self.prsError=[dataout[0],dataout[1],dataout[2],dataout[3],dataout[4]]
 			self.prsCalibrate=0
-		dataout=[dataout[0]-self.prsError[0],dataout[1]-self.prsError[1],dataout[2]-self.prsError[2],dataout[3]-self.prsError[3],dataout[4]-self.prsError[4]]		
-		#print dataout
+		dataout=[dataout[0]-self.prsError[0],dataout[1]-self.prsError[1],dataout[2]-self.prsError[2],dataout[3]-self.prsError[3],dataout[4]-self.prsError[4]]	
+	
 		return dataout
 
 
